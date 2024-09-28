@@ -1,5 +1,6 @@
 #include "main.h"
 #include <string>
+#include "lemlib/api.hpp" // IWYU pragma: keep
 
 /**
  * A callback function for LLEMU's center button.
@@ -17,39 +18,84 @@ void on_center_button() {
 	}
 }
 
+
+
+
+
+  pros::MotorGroup left_motors({1, -2, 3}, pros::MotorGearset::blue); // left motors on ports 1, 2, 3
+  pros::MotorGroup right_motors({-4, 5, -6}, pros::MotorGearset::blue); // right motors on ports 4, 5, 6
+
+
+  lemlib::Drivetrain drivetrain(&left_motors, &right_motors, 12.45, lemlib::Omniwheel::NEW_325_HALF, 450, 2);
+
+
+  // grabber for grabbing the poles
+  // default is HIGH pressure, which means that the pneumatics are enabled by default
+  pros::ADIDigitalOut preumatic_grabber ('H', HIGH);
+
+
+  // ?????
+  pros::Rotation rotation_horizontal (19); // rotation sensor
+  pros::Rotation rotation_vertical (18);
+  // pros::Rotation rotation_vertical (-18); // reversed figure out later
+
+
+  lemlib::TrackingWheel horizontal (&rotation_horizontal, lemlib::Omniwheel::NEW_275, 1.75);
+  lemlib::TrackingWheel vertical (&rotation_vertical, lemlib::Omniwheel::NEW_275, -0.225);
+
+  lemlib::OdomSensors sensors (&vertical, nullptr, &horizontal, nullptr, nullptr);
+
+
+  // lateral PID controller
+  lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
+                                                0, // integral gain (kI)
+                                                3, // derivative gain (kD)
+                                                3, // anti windup
+                                                1, // small error range, in inches
+                                                100, // small error range timeout, in milliseconds
+                                                3, // large error range, in inches
+                                                500, // large error range timeout, in milliseconds
+                                                20 // maximum acceleration (slew)
+  );
+
+  // angular PID controller
+  lemlib::ControllerSettings angular_controller(2, // proportional gain (kP)
+                                                0, // integral gain (kI)
+                                                10, // derivative gain (kD)
+                                                3, // anti windup
+                                                1, // small error range, in degrees
+                                                100, // small error range timeout, in milliseconds
+                                                3, // large error range, in degrees
+                                                500, // large error range timeout, in milliseconds
+                                                0 // maximum acceleration (slew)
+);
+
+
+lemlib::Chassis chassis (drivetrain, lateral_controller, angular_controller, sensors);
+
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
+
 void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hiii  :3");
-
-	pros::lcd::register_btn1_cb(on_center_button);
-
-
-
-  pros::Motor motor1 (1); // left wheels
-  pros::Motor motor2 (2); // left wheels reverse
-  pros::Motor motor3 (3); // left wheels
-  pros::Motor motor4 (4); // right wheels reverse
-  pros::Motor motor5 (5); // right wheels
-  pros::Motor motor6 (6); // right wheels reverse
-
-
-
-  motor1.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  motor2.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  motor3.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  motor4.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  motor5.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  motor6.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-
-
-
+    pros::lcd::initialize(); // initialize brain screen
+    chassis.calibrate(); // calibrate sensors
+    // print position to brain screen
+    pros::Task screen_task([&]() {
+        while (true) {
+            // print robot location to the brain screen
+            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
+            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
+            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+            // delay to save resources
+            pros::delay(20);
+        }
+    });
 }
+
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -83,47 +129,11 @@ void competition_initialize() {
  * from where it left off.
  */
 void autonomous() {
-	pros::Motor motor1 (1);
-  pros::Motor motor2 (2);
-  pros::Motor motor3 (3);
-	pros::Motor motor4 (4);
-  pros::Motor motor5 (5);
-  pros::Motor motor6 (6);
-  pros::Rotation rotation (19);
+	
+
+  chassis.moveToPose(40, 20, 30, 10000);
 
 
-
-  
-  rotation.reset();
-
-	pros::lcd::set_text(1, "AUTONOMOUS");
-
-
-  while (true) {
-
-
-    pros::lcd::set_text(2, std::to_string(rotation.get_position()));
-
-    if((rotation.get_position() / 100) > 300) {
-      motor1.brake();
-      motor2.brake();
-      motor3.brake();
-      motor4.brake();
-      motor5.brake();
-      motor6.brake();
-      continue;
-    }
-
-    // motor1.move(100);
-    // motor2.move(-100);
-    // motor3.move(100);
-    // motor4.move(-100);
-    // motor5.move(100);
-    // motor6.move(-100);
-
-    pros::delay(2);
-
-  }
 }
 
 
@@ -154,74 +164,47 @@ void opcontrol() {
   pros::Motor motor8 (8);
 
 
-  // left motors
-  pros::Motor motor1 (1);
-  pros::Motor motor2 (2); // reverse
-  pros::Motor motor3 (3);
-  // right motors
-  pros::Motor motor4 (4); // reverse
-  pros::Motor motor5 (5); 
-  pros::Motor motor6 (6); // reverse
-
-
-  // grabber for grabbing the poles
-  // default is HIGH pressure, which means that the pneumatics are enabled by default
-  pros::ADIDigitalOut preumatic_grabber ('H', HIGH);
-
-
-  // ?????
-  pros::Rotation rotation (19); // rotation sensor
+  // // left motors
+  // pros::Motor motor1 (1);
+  // pros::Motor motor2 (2); // reverse
+  // pros::Motor motor3 (3);
+  // // right motors
+  // pros::Motor motor4 (4); // reverse
+  // pros::Motor motor5 (5); 
+  // pros::Motor motor6 (6); // reverse
 
 
 
 
-  // vision sensor
-  pros::Vision vs (9);
 
-  pros::vision_signature_s_t blue1 = pros::Vision::signature_from_utility(1, -14623, -14289, -14456, 3477, 3843, 3660, 2.5, 0);
-  pros::vision_signature_s_t blue2 = pros::Vision::signature_from_utility(2, -3997, -3507, -3752, 10923, 11509, 11216, 2.5, 0);
-  pros::vision_signature_s_t blue3 = pros::Vision::signature_from_utility(3, -2475, -2105, -2290, 7669, 8067, 7868, 2.5, 0);
-
-
-  vs.clear_led();
-  vs.set_zero_point(pros::E_VISION_ZERO_CENTER);
-  
-  vs.set_exposure(120);
-
-  vs.set_auto_white_balance(1);
-
-  vs.set_signature(1, &blue1);
-  vs.set_signature(2, &blue2);
-  vs.set_signature(3, &blue3);
-
-  pros::vision_color_code_t colorc = vs.create_color_code(1, 2, 3, 0, 0);
-
-  
-  int inde = 1;
 
 	while (true) {
 
-    
-    pros::lcd::set_text(3, "sig: " + std::to_string(vs.get_signature(1).u_min) + " " + std::to_string(vs.get_signature(1).u_max) + " " + std::to_string(vs.get_signature(1).u_mean));
-    pros::lcd::set_text(4, "exposure: " + std::to_string(vs.get_exposure()));
+    int leftY = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+    int rightY = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
 
-
-    pros::lcd::set_text(6, "===: " + std::to_string(vs.get_vision().get_by_size(0).x_middle_coord));
-    pros::lcd::set_text(5, "===: " + std::to_string(vs.get_vision().get_by_size(1).x_middle_coord));
-    pros::lcd::set_text(7, "===: " + std::to_string(vs.get_vision().get_by_size(2).x_middle_coord));
-
-    pros::lcd::set_text(1, "going" + std::to_string(inde));
-
-    inde++;
-
-    pros::delay(500);
+        // move the robot
+    chassis.tank(leftY, rightY);
 
     // pros::lcd::set_text(6, "===: " + std::to_string(vs.get_by_sig(0, 1).x_middle_coord));
     // pros::lcd::set_text(5, "===: " + std::to_string(vs.get_by_sig(0, 2).x_middle_coord));
     // pros::lcd::set_text(7, "===: " + std::to_string(vs.get_by_sig(0, 3).x_middle_coord));
 
-    pros::delay(500);
 
+    // if(rotation.get_position() > 1000) {
+    //   motor1.move(30);
+		// 	motor2.move(-30);
+		// 	motor3.move(30);
+    //   pros::lcd::set_text(2, "rotating");
+
+    //   pros::delay(1000);
+    // } else {
+    //   motor1.brake();
+		// 	motor2.brake();
+		// 	motor3.brake();
+    // }
+
+    // pros::lcd::set_text(1, std::to_string(rotation.get_position()));
 
     // L1 is used for disabling the grabber (letting it go)
 		bool L1_pressed = master.get_digital(pros::E_CONTROLLER_DIGITAL_L1);
@@ -257,26 +240,26 @@ void opcontrol() {
 		int rightPower = master.get_analog(ANALOG_RIGHT_Y);
 
 		// left wheels 
-		if(leftPower) {
-			motor1.move(leftPower);
-			motor2.move(-leftPower);
-			motor3.move(leftPower);
-		} else {
-			motor1.brake();
-			motor2.brake();
-			motor3.brake();
-		}
+		// if(leftPower) {
+		// 	motor1.move(leftPower);
+		// 	motor2.move(-leftPower);
+		// 	motor3.move(leftPower);
+		// } else {
+		// 	motor1.brake();
+		// 	motor2.brake();
+		// 	motor3.brake();
+		// }
 
-		// right wheels 
-		if(rightPower) {
-      motor4.move(-rightPower);
-			motor5.move(rightPower);
-			motor6.move(-rightPower);
-		} else {
-			motor4.brake();
-			motor5.brake();
-			motor6.brake();		
-		}
+		// // right wheels 
+		// if(rightPower) {
+    //   motor4.move(-rightPower);
+		// 	motor5.move(rightPower);
+		// 	motor6.move(-rightPower);
+		// } else {
+		// 	motor4.brake();
+		// 	motor5.brake();
+		// 	motor6.brake();		
+		// }
 
 
 		pros::delay(20);
