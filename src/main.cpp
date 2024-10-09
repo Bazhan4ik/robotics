@@ -1,28 +1,31 @@
 #include "main.h"
 #include <string>
 #include "lemlib/api.hpp" // IWYU pragma: keep
+#include "lemlib/chassis/trackingWheel.hpp"
 
 
 
 
-pros::ADIDigitalOut preumatic_grabber('H', HIGH);
+pros::adi::DigitalOut preumatic_grabber('H', HIGH);
 
 
+pros::Imu imu(12);
 
 
 pros::MotorGroup left_motors({1, -2, 3}, pros::MotorGearset::blue);   // left motors on ports 1, 2, 3
 pros::MotorGroup right_motors({-4, 5, -6}, pros::MotorGearset::blue); // right motors on ports 4, 5, 6
 
-lemlib::Drivetrain drivetrain(&left_motors, &right_motors, 12.45, lemlib::Omniwheel::NEW_325_HALF, 450, 2);
+lemlib::Drivetrain drivetrain(&left_motors, &right_motors, 12.375, lemlib::Omniwheel::NEW_325, 450, 2);
 
 
 pros::Rotation rotation_horizontal(-19);
 pros::Rotation rotation_vertical(18);
 
-lemlib::TrackingWheel horizontal(&rotation_horizontal, lemlib::Omniwheel::NEW_275, -0.2813);
-lemlib::TrackingWheel vertical(&rotation_vertical, lemlib::Omniwheel::NEW_275, 0.1895);
+lemlib::TrackingWheel horizontal(&rotation_horizontal, lemlib::Omniwheel::NEW_2, -0.2813);
+lemlib::TrackingWheel vertical(&rotation_vertical, lemlib::Omniwheel::NEW_2, 0.1895);
 
-lemlib::OdomSensors sensors(&vertical, nullptr, &horizontal, nullptr, nullptr);
+// lemlib::OdomSensors sensors(&vertical, nullptr, &horizontal, nullptr, nullptr);
+lemlib::OdomSensors sensors(&vertical, nullptr, &horizontal, nullptr, &imu);
 
 // lateral PID controller
 lemlib::ControllerSettings lateral_controller(10,  // proportional gain (kP)
@@ -48,7 +51,12 @@ lemlib::ControllerSettings angular_controller(2,   // proportional gain (kP)
                                               0    // maximum acceleration (slew)
 );
 
-lemlib::Chassis chassis(drivetrain, lateral_controller, angular_controller, sensors);
+
+lemlib::ExpoDriveCurve steer_curve(3, 10, 1.019);
+lemlib::ExpoDriveCurve throttle_curve(3, 10, 1.019);
+
+
+lemlib::Chassis chassis(drivetrain, lateral_controller, angular_controller, sensors, &throttle_curve, &steer_curve);
 
 
 
@@ -139,16 +147,18 @@ void competition_initialize()
 void autonomous()
 {
 
-  int index = 0;
+  chassis.moveToPose(10, 10, 90, 3000);
 
-  while (true)
-  {
-    if (index < 100)
-    {
-      chassis.tank(50, -50);
-      index++;
-    }
-  }
+  // int index = 0;
+
+  // while (true)
+  // {
+  //   if (index < 100)
+  //   {
+  //     chassis.tank(50, -50);
+  //     index++;
+  //   }
+  // }
 }
 
 /**
