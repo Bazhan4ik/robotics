@@ -73,16 +73,11 @@ void initialize() {
 
   double global_horizontal = 0.0;
   double global_vertical = 0.0;
-  // double global_angle = 0.0;
-  double global_angle = imu.get_heading();
-
+  double global_angle = 0.0;
 
 
   while(true) {
-    // print x and y and theta
 
-
-    // pros::lcd::print(0, "X: %f", 100);
     if(imu.get_heading() == infinity()) {
       pros::lcd::print(0, "ANGLE INFINITE");
       pros::lcd::print(1, "%f", imu.get_heading());
@@ -115,8 +110,8 @@ void initialize() {
         half_angle = 0.0;
       } else {
 
-        hypotenuse = 2.0 * sin(theta / 2) * (vertical_position / theta - (theta > 0 ? -0.48133 : 0.48133));
-        hypotenuse2 = 2.0 * sin(theta / 2) * (horizontal_position / theta + (theta > 0 ? -0.714502 : 0.714502));
+        hypotenuse = 2.0 * sin(theta / 2) * (vertical_position / theta - 0.48133);
+        hypotenuse2 = 2.0 * sin(theta / 2) * (horizontal_position / theta + 0.714502);
 
         half_angle = theta / 2.0;
       }
@@ -131,26 +126,20 @@ void initialize() {
 
       global_horizontal += horizontal_position;
       global_vertical += vertical_position;
-      // global_angle += theta;
     }
 
 
 
 
 
-    pros::lcd::print(0, "%f", vertical_position);
-    pros::lcd::print(1, "%f", horizontal_position);
-    // pros::lcd::print(3, "=========");
     pros::lcd::print(3, "ROTATION: %f", imu.get_rotation());
     pros::lcd::print(4, "Y: %f", y_global);
     pros::lcd::print(5, "X: %f", x_global);
     pros::lcd::print(6, "O: %f", global_angle);
-    // pros::lcd::print(7, "%f", global_vertical);
 
 
     rotation_horizontal.reset_position();
     rotation_vertical.reset_position();
-    // imu.set_heading(0.0);
     imu.set_rotation(0.0);
 
 
