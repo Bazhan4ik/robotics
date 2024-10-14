@@ -21,35 +21,18 @@ pros::Rotation rotation_vertical(19);
 
 
 
-double wheel_ticks_per_rotation = 300.0;
-double wheel_diameter = 8.49;
-double wheel_radius = wheel_diameter / 2.0;
-
-double cm_per_tick_wheel = 2.0 * M_PI * wheel_radius / wheel_ticks_per_rotation;
-
-double ticks_per_degrees = 300.0/360.0;
-
-
-
-
-double sensors_ticks_per_rotation = std::round(360 / 0.088);
 double tracking_wheel_diameter = 5.10;
-double tracking_wheel_radius = tracking_wheel_diameter / 2;
+double tracking_wheel_radius = tracking_wheel_diameter / 2.0;
 
-double cm_per_tick = 2.0 * M_PI * tracking_wheel_radius / sensors_ticks_per_rotation;
-double cm_per_tick_horizontal = 2.0 * M_PI * (tracking_wheel_radius - 0.4) / sensors_ticks_per_rotation;
+double ticks_per_rotation = std::round(360.0 / 0.088);
 
+double cm_per_tick = 2.0 * M_PI * tracking_wheel_radius / ticks_per_rotation;
 
 
 
 
 void opcontrol() {
-
-
 	while (true) {
-
-
-
     pros::delay(20);
 	}
 }
@@ -85,6 +68,10 @@ void initialize() {
       continue;
     }
 
+
+    // left_motors.move(30);
+    // right_motors.move(-30);
+
     global_angle = imu.get_heading() * M_PI / 180.0;
 
 
@@ -95,8 +82,8 @@ void initialize() {
 
     double theta = imu.get_rotation() * M_PI / 180.0;
 
-
-    if(vertical_position || horizontal_position) {
+    if(vertical_position) {
+    // if(vertical_position || horizontal_position) {
 
       double hypotenuse;
       double hypotenuse2;
@@ -109,39 +96,45 @@ void initialize() {
 
         half_angle = 0.0;
       } else {
-
-        hypotenuse = 2.0 * sin(theta / 2) * (vertical_position / theta - 0.48133);
-        hypotenuse2 = 2.0 * sin(theta / 2) * (horizontal_position / theta + 0.714502);
-
         half_angle = theta / 2.0;
+
+        hypotenuse = 2.0 * sin(half_angle) * (vertical_position / theta - 0.6);
+        hypotenuse2 = 2.0 * sin(half_angle) * (horizontal_position / theta - 0.8); // horizontal tracking wheel offset is 0.7... forward-backward
       }
 
-      y_global += hypotenuse * cos(global_angle + half_angle);
-      x_global += hypotenuse * sin(global_angle + half_angle);
+      // y_global += hypotenuse * cos(global_angle + half_angle);
+      // x_global += hypotenuse * sin(global_angle + half_angle);
 
-      y_global += hypotenuse2 * -sin(global_angle + half_angle);
-      x_global += hypotenuse2 * cos(global_angle + half_angle);
+      y_global += hypotenuse2 * sin(-(global_angle + half_angle));
+      x_global += hypotenuse2 * cos(-(global_angle + half_angle));
 
 
 
       global_horizontal += horizontal_position;
       global_vertical += vertical_position;
+
+
     }
 
 
 
 
 
-    pros::lcd::print(3, "ROTATION: %f", imu.get_rotation());
-    pros::lcd::print(4, "Y: %f", y_global);
-    pros::lcd::print(5, "X: %f", x_global);
-    pros::lcd::print(6, "O: %f", global_angle);
+    // pros::lcd::print(3, "ROTATION: %f", imu.get_rotation());
+    pros::lcd::print(0, "Y: %f", y_global);
+    pros::lcd::print(1, "X: %f", x_global);
+    pros::lcd::print(2, "ANGLE: %frad  -  %fdeg", global_angle, imu.get_heading());
 
 
     rotation_horizontal.reset_position();
     rotation_vertical.reset_position();
     imu.set_rotation(0.0);
 
+    // if(179.5 < imu.get_heading() && imu.get_heading() < 180.5) {
+    //   left_motors.brake();
+    //   right_motors.brake();
+    //   break;
+    // }
 
     pros::delay(10);
   }
