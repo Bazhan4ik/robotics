@@ -1,5 +1,6 @@
 #include "main.h"
 #include "pros/imu.hpp"
+#include "pros/llemu.hpp"
 #include "pros/rtos.hpp"
 #include <cmath>
 
@@ -26,7 +27,8 @@ double tracking_wheel_radius = tracking_wheel_diameter / 2.0;
 
 double ticks_per_rotation = std::round(360.0 / 0.088);
 
-double cm_per_tick = 2.0 * M_PI * tracking_wheel_radius / ticks_per_rotation;
+double cm_per_tick_h = 2.0 * M_PI * tracking_wheel_radius / ticks_per_rotation;
+double cm_per_tick_v = 2.0 * M_PI * (tracking_wheel_radius - 0.04) / ticks_per_rotation;
 
 
 
@@ -46,8 +48,30 @@ void initialize() {
   rotation_horizontal.reset_position();
   rotation_vertical.reset_position();
   imu.reset();
-  imu.set_heading(0.0);
   imu.set_rotation(0.0);
+  imu.set_heading(0.0);
+
+
+
+  
+
+
+
+
+  return;
+
+  while (true) {
+    if(imu.get_heading() == infinity()) {
+      pros::lcd::print(0, "ANGLE INFINITE");
+      pros::lcd::print(1, "%f", imu.get_heading());
+      pros::delay(20);
+      continue;
+    }
+
+    break;
+  }
+
+
 
 
   double x_global = 0.0;
@@ -60,36 +84,25 @@ void initialize() {
 
 
   while(true) {
-
-    if(imu.get_heading() == infinity()) {
-      pros::lcd::print(0, "ANGLE INFINITE");
-      pros::lcd::print(1, "%f", imu.get_heading());
-      pros::delay(20);
-      continue;
-    }
-
-
-    // left_motors.move(30);
-    // right_motors.move(-30);
-
     global_angle = imu.get_heading() * M_PI / 180.0;
 
 
 
 
-    double vertical_position = rotation_vertical.get_position() / 100.0 / 0.088 * cm_per_tick;
-    double horizontal_position = rotation_horizontal.get_position() / 100.0 / 0.088 * cm_per_tick;
+    double vertical_position = rotation_vertical.get_position() / 100.0 / 0.088 * cm_per_tick_v;
+    double horizontal_position = rotation_horizontal.get_position() / 100.0 / 0.088 * cm_per_tick_h;
 
     double theta = imu.get_rotation() * M_PI / 180.0;
 
-    if(vertical_position) {
-    // if(vertical_position || horizontal_position) {
+    // if(vertical_position) {
+    if(vertical_position || horizontal_position) {
 
       double hypotenuse;
       double hypotenuse2;
       double half_angle;
 
-      if(theta == 0.0) {
+      if(theta == 0.0 || (theta < 0.0004 && theta > -6.279185)) {
+      // if(theta == 0.0) {
 
         hypotenuse = vertical_position;
         hypotenuse2 = horizontal_position;
@@ -98,22 +111,20 @@ void initialize() {
       } else {
         half_angle = theta / 2.0;
 
-        hypotenuse = 2.0 * sin(half_angle) * (vertical_position / theta - 0.6);
-        hypotenuse2 = 2.0 * sin(half_angle) * (horizontal_position / theta - 0.8); // horizontal tracking wheel offset is 0.7... forward-backward
+        hypotenuse = 2.0 * sin(half_angle) * (vertical_position / theta + 0.48133);
+        hypotenuse2 = 2.0 * sin(half_angle) * (horizontal_position / theta); // horizontal tracking wheel offset is 0.7... forward-backward
       }
 
-      // y_global += hypotenuse * cos(global_angle + half_angle);
-      // x_global += hypotenuse * sin(global_angle + half_angle);
+      y_global += hypotenuse * cos(global_angle + half_angle);
+      x_global += hypotenuse * sin(global_angle + half_angle);
 
-      y_global += hypotenuse2 * sin(-(global_angle + half_angle));
-      x_global += hypotenuse2 * cos(-(global_angle + half_angle));
-
-
-
-      global_horizontal += horizontal_position;
-      global_vertical += vertical_position;
+      y_global += hypotenuse2 * -sin(global_angle + half_angle);
+      x_global += hypotenuse2 * cos(global_angle + half_angle);
 
 
+
+      // global_horizontal += horizontal_position;
+      // global_vertical += vertical_position;
     }
 
 

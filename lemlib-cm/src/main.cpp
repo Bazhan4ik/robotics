@@ -12,10 +12,11 @@
 
 
 double t_wheel_diameter = lemlib::Omniwheel::NEW_2 * 2.54;
-double wheel_diatemetr = lemlib::Omniwheel::NEW_325 * 2.54;
+double wheel_diatemeter = lemlib::Omniwheel::NEW_325 * 2.54;
 
 double track_width = 12.375 * 2.54;
-double horizontal_tw_offset = -0.2813 * 2.54;
+double horizontal_tw_offset = 0.0;
+// double horizontal_tw_offset = -0.2813 * 2.54;
 double vertical_tw_offset = 0.1895 * 2.54;
 
 
@@ -33,17 +34,17 @@ double vertical_tw_offset = 0.1895 * 2.54;
 pros::adi::DigitalOut preumatic_grabber('H', HIGH);
 
 
-pros::Imu imu(12);
+pros::Imu imu(18);
 
 
 pros::MotorGroup left_motors({1, -2, 3}, pros::MotorGearset::blue);   // left motors on ports 1, 2, 3
 pros::MotorGroup right_motors({-4, 5, -6}, pros::MotorGearset::blue); // right motors on ports 4, 5, 6
 
-lemlib::Drivetrain drivetrain(&left_motors, &right_motors, track_width, wheel_diatemetr, 450, 2);
+lemlib::Drivetrain drivetrain(&left_motors, &right_motors, track_width, wheel_diatemeter, 450, 2);
 
 
-pros::Rotation rotation_horizontal(-19);
-pros::Rotation rotation_vertical(18);
+pros::Rotation rotation_horizontal(-9);
+pros::Rotation rotation_vertical(19);
 
 lemlib::TrackingWheel horizontal(&rotation_horizontal, t_wheel_diameter, horizontal_tw_offset);
 lemlib::TrackingWheel vertical(&rotation_vertical, t_wheel_diameter, vertical_tw_offset);
