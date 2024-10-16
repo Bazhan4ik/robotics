@@ -2,7 +2,6 @@
 #include "pros/imu.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/rotation.hpp"
-#include "config.h"
 
 
 
@@ -36,33 +35,32 @@ double cm_per_tick_h = 2.0 * M_PI * tracking_wheel_radius / ticks_per_rotation;
 double cm_per_tick_v = 2.0 * M_PI * (tracking_wheel_radius - 0.04) / ticks_per_rotation;
 
 
-extern void PID::drivePID(double target) {
+extern void PID::drivePID(pros::Imu imu, pros::MotorGroup leftMotors, pros::MotorGroup rightMotors, pros::Rotation tw_h, pros::Rotation tw_v, double target) {
 
   // start PID
   PID::enableDrivePID = true;
   PID::targetValue = target;
 
 
-  // 
   PID::kP = 0;
   PID::kD = 0;
 
 
 
-  left_motors.brake();
-  right_motors.brake();
+  leftMotors.brake();
+  rightMotors.brake();
 
 
   // reset rotation positions
-  rotation_horizontal.reset();
-  rotation_vertical.reset();
+  tw_h.reset();
+  tw_v.reset();
   imu.reset();
   
 
 
   while(PID::enableDrivePID) {
-    double XRotatePosition = rotation_horizontal.get_position();
-    double YRotatePosition = rotation_vertical.get_position();
+    double XRotatePosition = tw_h.get_position();
+    double YRotatePosition = tw_v.get_position();
 
     PID::avgPosition = YRotatePosition * cm_per_tick_v;
 
@@ -98,15 +96,15 @@ extern void PID::drivePID(double target) {
 
 
     // CHECK ALL THE NUMBERS
-    if(fabs(PID::error) < 0.1 && left_motors.get_voltage() < 30) {
+    if(fabs(PID::error) < 2.0 && leftMotors.get_voltage() < 30) {
       // STOP ALL THE MOTORS
-      left_motors.brake();
-      right_motors.brake();
+      leftMotors.brake();
+      rightMotors.brake();
       break;
     } else {
       // KEEP SPINNING
-      left_motors.move(LPower);
-      right_motors.move(RPower);
+      leftMotors.move(LPower);
+      rightMotors.move(RPower);
     }
 
 

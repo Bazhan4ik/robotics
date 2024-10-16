@@ -3,21 +3,12 @@
 #include "pros/llemu.hpp"
 #include "pros/rtos.hpp"
 #include <cmath>
+#include "PID.h"
+
+#include "config.h"
 
 
 
-
-
-
-pros::Controller controller(pros::E_CONTROLLER_MASTER);
-
-pros::IMU imu (18);
-
-pros::MotorGroup left_motors({1, -2, 3}, pros::MotorGearset::blue, pros::MotorEncoderUnits::degrees);   // left motors on ports 1, 2, 3
-pros::MotorGroup right_motors({-4, 5, -6}, pros::MotorGearset::blue, pros::MotorEncoderUnits::degrees); // right motors on ports 4, 5, 6
-
-pros::Rotation rotation_horizontal(-9);
-pros::Rotation rotation_vertical(19);
 
 
 
@@ -44,7 +35,6 @@ void opcontrol() {
 
 void initialize() {
 	pros::lcd::initialize();
-
   rotation_horizontal.reset_position();
   rotation_vertical.reset_position();
   imu.reset();
@@ -53,12 +43,16 @@ void initialize() {
 
 
 
-  
-
 
 
 
   return;
+
+
+
+
+
+
 
   while (true) {
     if(imu.get_heading() == infinity()) {
@@ -76,11 +70,11 @@ void initialize() {
 
   double x_global = 0.0;
   double y_global = 0.0;
-
-
-  double global_horizontal = 0.0;
-  double global_vertical = 0.0;
   double global_angle = 0.0;
+
+
+  // double global_horizontal = 0.0;
+  // double global_vertical = 0.0;
 
 
   while(true) {
@@ -111,14 +105,21 @@ void initialize() {
       } else {
         half_angle = theta / 2.0;
 
-        hypotenuse = 2.0 * sin(half_angle) * (vertical_position / theta + 0.48133);
-        hypotenuse2 = 2.0 * sin(half_angle) * (horizontal_position / theta); // horizontal tracking wheel offset is 0.7... forward-backward
+        double radius = vertical_position / theta + 0.48133;
+
+        double Dv = sqrt(2 * radius * (1 - cos(theta)));
+
+        // hypotenuse = 2.0 * sin(half_angle) * (vertical_position / theta + 0.48133);
+        // hypotenuse = 
+        // hypotenuse = 2.0 * (2 * (vertical_position / theta + 0.48133) * sqrt((1.0 - cos(theta))/2.0));
+        // hypotenuse2 = 2.0 * sin(half_angle) * (horizontal_position / theta); // horizontal tracking wheel offset is 0.7... forward-backward
+        // hypotenuse2 = 2.0 * (2 * (horizontal_position / theta) * sqrt((1.0 - cos(theta))/2.0));
       }
 
       y_global += hypotenuse * cos(global_angle + half_angle);
       x_global += hypotenuse * sin(global_angle + half_angle);
 
-      y_global += hypotenuse2 * -sin(global_angle + half_angle);
+      y_global += hypotenuse2 * sin(global_angle + half_angle);
       x_global += hypotenuse2 * cos(global_angle + half_angle);
 
 
@@ -207,7 +208,9 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
-void autonomous() {}
+void autonomous() {
+  PID::drivePID(48.0 * 2.54);
+}
 
 /**
  * Runs the operator control code. This function will be started in its own task
