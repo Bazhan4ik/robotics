@@ -29,9 +29,11 @@ double vertical_tw_offset = 0.1895 * 2.54;
 
 
 
+pros::MotorGroup intake ({7});
 
 
-pros::adi::DigitalOut preumatic_grabber('H', HIGH);
+
+pros::adi::DigitalOut preumatic_grabber('D', LOW);
 
 
 pros::Imu imu(18);
@@ -43,7 +45,7 @@ pros::MotorGroup right_motors({-4, 5, -6}, pros::MotorGearset::blue); // right m
 lemlib::Drivetrain drivetrain(&left_motors, &right_motors, track_width, wheel_diatemeter, 450, 2);
 
 
-pros::Rotation rotation_horizontal(-9);
+pros::Rotation rotation_horizontal(9);
 pros::Rotation rotation_vertical(19);
 
 lemlib::TrackingWheel horizontal(&rotation_horizontal, t_wheel_diameter, horizontal_tw_offset);
@@ -59,7 +61,7 @@ lemlib::ControllerSettings lateral_controller(10,  // proportional gain (kP)
                                               3,   // anti windup
                                               1 * 2.54,   // small error range, in inches
                                               100, // small error range timeout, in milliseconds
-                                              3 * 2.54,   // large error range, in inches
+                                              1 * 2.54,   // large error range, in inches
                                               500, // large error range timeout, in milliseconds
                                               20   // maximum acceleration (slew)
 );
@@ -131,7 +133,7 @@ void initialize()
         pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
         // delay to save resources
 
-        master.set_text(1, 1, "X: " + std::to_string(chassis.getPose().x));
+        // master.set_text(1, 1, "X: " + std::to_string(chassis.getPose().x));
 
         pros::delay(40);
     }
@@ -169,10 +171,89 @@ void competition_initialize()
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
+
+void run_intake() {
+  while(true) {
+    intake.move(127);
+    pros::delay(20);
+  }
+}
+
 void autonomous()
 {
 
-  chassis.moveToPose(10, 10, 90, 3000);
+  preumatic_grabber.set_value(false);
+
+  pros::delay(1000);
+
+  chassis.moveToPose(0, -60, 0, 2000, { .forwards=false,  });
+  chassis.moveToPose(0, -103, 0, 2000, { .forwards=false, .maxSpeed=75 });
+
+  pros::delay(2000);
+
+  preumatic_grabber.set_value(true);
+
+  pros::delay(1000);
+
+  chassis.moveToPose(0, -95, 0, 2000);
+
+  pros::delay(500);
+
+  pros::Task task([&]() {
+    while (true) {
+      intake.move(127);
+      pros::delay(20);
+    }
+  });
+
+  pros::delay(1500);
+
+  task.remove();
+
+  pros::Task task2([&]() {
+    while (true) {
+      intake.move(-127);
+      pros::delay(20);
+    }
+  });
+
+  pros::delay(500);
+
+  task2.remove();
+
+  intake.brake();
+
+  preumatic_grabber.set_value(false);
+  pros::delay(1000);
+  preumatic_grabber.set_value(true);
+  pros::delay(500);
+
+  chassis.moveToPose(47, chassis.getPose().y, 90, 2000);
+
+
+  preumatic_grabber.set_value(false);
+  pros::delay(1000);
+
+
+  // chassis.moveToPose(0, -110, 0, 1000, { .forwards=false });
+  // chassis.moveToPose(0, -90, 0, 1000, { .forwards=false });
+
+  for(int i = 0; i < 20; i++) {
+    intake.move(127);
+    pros::delay(20);
+  }
+
+
+  intake.brake();
+
+
+
+  // chassis.turnToHeading(90, 1000);
+  // chassis.moveToPose(50, 50, 90, 2000);
+
+
+
+
 
   // int index = 0;
 
@@ -201,6 +282,7 @@ void autonomous()
  */
 void opcontrol()
 {
+  preumatic_grabber.set_value(true);
   // controller
 
   // motors used to grab the circles and push them onto the pole
@@ -225,6 +307,21 @@ void opcontrol()
 
     // move the robot
     chassis.tank(leftY, rightY);
+
+
+    if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+      preumatic_grabber.set_value(false);
+    } else {
+      preumatic_grabber.set_value(true);
+    }
+
+    if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
+      intake.move(127);
+    } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
+      intake.move(-127);
+    } else {
+      intake.brake();
+    }
 
     // if (index < 100) {
     //   chassis.tank(50, -50);

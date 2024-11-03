@@ -3,23 +3,11 @@
 #include "pros/llemu.hpp"
 #include "pros/rtos.hpp"
 #include <cmath>
+
 #include "PID.h"
 
-#include "config.h"
 
 
-
-
-
-
-
-double tracking_wheel_diameter = 5.10;
-double tracking_wheel_radius = tracking_wheel_diameter / 2.0;
-
-double ticks_per_rotation = std::round(360.0 / 0.088);
-
-double cm_per_tick_h = 2.0 * M_PI * tracking_wheel_radius / ticks_per_rotation;
-double cm_per_tick_v = 2.0 * M_PI * (tracking_wheel_radius - 0.04) / ticks_per_rotation;
 
 
 
@@ -35,11 +23,11 @@ void opcontrol() {
 
 void initialize() {
 	pros::lcd::initialize();
-  rotation_horizontal.reset_position();
-  rotation_vertical.reset_position();
-  imu.reset();
-  imu.set_rotation(0.0);
-  imu.set_heading(0.0);
+  // rotation_horizontal.reset_position();
+  // rotation_vertical.reset_position();
+  // imu.reset();
+  // imu.set_rotation(0.0);
+  // imu.set_heading(0.0);
 
 
 
@@ -54,16 +42,16 @@ void initialize() {
 
 
 
-  while (true) {
-    if(imu.get_heading() == infinity()) {
-      pros::lcd::print(0, "ANGLE INFINITE");
-      pros::lcd::print(1, "%f", imu.get_heading());
-      pros::delay(20);
-      continue;
-    }
+  // while (true) {
+  //   if(imu.get_heading() == infinity()) {
+  //     pros::lcd::print(0, "ANGLE INFINITE");
+  //     pros::lcd::print(1, "%f", imu.get_heading());
+  //     pros::delay(20);
+  //     continue;
+  //   }
 
-    break;
-  }
+  //   break;
+  // }
 
 
 
@@ -77,79 +65,79 @@ void initialize() {
   // double global_vertical = 0.0;
 
 
-  while(true) {
-    global_angle = imu.get_heading() * M_PI / 180.0;
+  // while(true) {
+  //   global_angle = imu.get_heading() * M_PI / 180.0;
 
 
 
 
-    double vertical_position = rotation_vertical.get_position() / 100.0 / 0.088 * cm_per_tick_v;
-    double horizontal_position = rotation_horizontal.get_position() / 100.0 / 0.088 * cm_per_tick_h;
+  //   double vertical_position = rotation_vertical.get_position() / 100.0 / 0.088 * cm_per_tick_v;
+  //   double horizontal_position = rotation_horizontal.get_position() / 100.0 / 0.088 * cm_per_tick_h;
 
-    double theta = imu.get_rotation() * M_PI / 180.0;
+  //   double theta = imu.get_rotation() * M_PI / 180.0;
 
-    // if(vertical_position) {
-    if(vertical_position || horizontal_position) {
+  //   // if(vertical_position) {
+  //   if(vertical_position || horizontal_position) {
 
-      double hypotenuse;
-      double hypotenuse2;
-      double half_angle;
+  //     double hypotenuse;
+  //     double hypotenuse2;
+  //     double half_angle;
 
-      if(theta == 0.0 || (theta < 0.0004 && theta > -6.279185)) {
-      // if(theta == 0.0) {
+  //     if(theta == 0.0 || (theta < 0.0004 && theta > -6.279185)) {
+  //     // if(theta == 0.0) {
 
-        hypotenuse = vertical_position;
-        hypotenuse2 = horizontal_position;
+  //       hypotenuse = vertical_position;
+  //       hypotenuse2 = horizontal_position;
 
-        half_angle = 0.0;
-      } else {
-        half_angle = theta / 2.0;
+  //       half_angle = 0.0;
+  //     } else {
+  //       half_angle = theta / 2.0;
 
-        double radius = vertical_position / theta + 0.48133;
+  //       double radius = vertical_position / theta + 0.48133;
 
-        double Dv = sqrt(2 * radius * (1 - cos(theta)));
+  //       double Dv = sqrt(2 * radius * (1 - cos(theta)));
 
-        // hypotenuse = 2.0 * sin(half_angle) * (vertical_position / theta + 0.48133);
-        // hypotenuse = 
-        // hypotenuse = 2.0 * (2 * (vertical_position / theta + 0.48133) * sqrt((1.0 - cos(theta))/2.0));
-        // hypotenuse2 = 2.0 * sin(half_angle) * (horizontal_position / theta); // horizontal tracking wheel offset is 0.7... forward-backward
-        // hypotenuse2 = 2.0 * (2 * (horizontal_position / theta) * sqrt((1.0 - cos(theta))/2.0));
-      }
+  //       // hypotenuse = 2.0 * sin(half_angle) * (vertical_position / theta + 0.48133);
+  //       // hypotenuse = 
+  //       // hypotenuse = 2.0 * (2 * (vertical_position / theta + 0.48133) * sqrt((1.0 - cos(theta))/2.0));
+  //       // hypotenuse2 = 2.0 * sin(half_angle) * (horizontal_position / theta); // horizontal tracking wheel offset is 0.7... forward-backward
+  //       // hypotenuse2 = 2.0 * (2 * (horizontal_position / theta) * sqrt((1.0 - cos(theta))/2.0));
+  //     }
 
-      y_global += hypotenuse * cos(global_angle + half_angle);
-      x_global += hypotenuse * sin(global_angle + half_angle);
+  //     y_global += hypotenuse * cos(global_angle + half_angle);
+  //     x_global += hypotenuse * sin(global_angle + half_angle);
 
-      y_global += hypotenuse2 * sin(global_angle + half_angle);
-      x_global += hypotenuse2 * cos(global_angle + half_angle);
-
-
-
-      // global_horizontal += horizontal_position;
-      // global_vertical += vertical_position;
-    }
+  //     y_global += hypotenuse2 * sin(global_angle + half_angle);
+  //     x_global += hypotenuse2 * cos(global_angle + half_angle);
 
 
 
+  //     // global_horizontal += horizontal_position;
+  //     // global_vertical += vertical_position;
+  //   }
 
 
-    // pros::lcd::print(3, "ROTATION: %f", imu.get_rotation());
-    pros::lcd::print(0, "Y: %f", y_global);
-    pros::lcd::print(1, "X: %f", x_global);
-    pros::lcd::print(2, "ANGLE: %frad  -  %fdeg", global_angle, imu.get_heading());
 
 
-    rotation_horizontal.reset_position();
-    rotation_vertical.reset_position();
-    imu.set_rotation(0.0);
 
-    // if(179.5 < imu.get_heading() && imu.get_heading() < 180.5) {
-    //   left_motors.brake();
-    //   right_motors.brake();
-    //   break;
-    // }
+  //   // pros::lcd::print(3, "ROTATION: %f", imu.get_rotation());
+  //   pros::lcd::print(0, "Y: %f", y_global);
+  //   pros::lcd::print(1, "X: %f", x_global);
+  //   pros::lcd::print(2, "ANGLE: %frad  -  %fdeg", global_angle, imu.get_heading());
 
-    pros::delay(10);
-  }
+
+  //   rotation_horizontal.reset_position();
+  //   rotation_vertical.reset_position();
+  //   imu.set_rotation(0.0);
+
+  //   // if(179.5 < imu.get_heading() && imu.get_heading() < 180.5) {
+  //   //   left_motors.brake();
+  //   //   right_motors.brake();
+  //   //   break;
+  //   // }
+
+  //   pros::delay(10);
+  // }
 }
 
 

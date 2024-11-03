@@ -2,8 +2,10 @@
 #include "pros/imu.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/rotation.hpp"
-#include "config.h"
 
+
+#include "PID.h"
+#include "config.h"
 
 
 
@@ -22,18 +24,10 @@ namespace PID {
   double targetValue;
 
 
-  void drivePID (pros::Imu, pros::MotorGroup, pros::MotorGroup, pros::Rotation, pros::Rotation, double tgt);
+  void drivePID (double tgt);
 }
 
 
-
-double tracking_wheel_diameter = 5.10;
-double tracking_wheel_radius = tracking_wheel_diameter / 2.0;
-
-double ticks_per_rotation = std::round(360.0 / 0.088);
-
-double cm_per_tick_h = 2.0 * M_PI * tracking_wheel_radius / ticks_per_rotation;
-double cm_per_tick_v = 2.0 * M_PI * (tracking_wheel_radius - 0.04) / ticks_per_rotation;
 
 
 extern void PID::drivePID(double target) {

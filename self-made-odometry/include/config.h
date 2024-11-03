@@ -3,12 +3,19 @@
 #include "pros/llemu.hpp"
 #include "pros/rtos.hpp"
 
+extern pros::IMU imu;
+
+extern pros::MotorGroup left_motors;   // left motors on ports 1, 2, 3
+extern pros::MotorGroup right_motors; // right motors on ports 4, 5, 6
+
+extern pros::Rotation rotation_horizontal;
+extern pros::Rotation rotation_vertical;
 
 
-pros::IMU imu (18);
+extern double tracking_wheel_diameter;
+extern double tracking_wheel_radius;
 
-pros::MotorGroup left_motors({1, -2, 3}, pros::MotorGearset::blue, pros::MotorEncoderUnits::degrees);   // left motors on ports 1, 2, 3
-pros::MotorGroup right_motors({-4, 5, -6}, pros::MotorGearset::blue, pros::MotorEncoderUnits::degrees); // right motors on ports 4, 5, 6
+extern double ticks_per_rotation;
 
-pros::Rotation rotation_horizontal(-9);
-pros::Rotation rotation_vertical(19);
+extern double cm_per_tick_h;
+extern double cm_per_tick_v;
