@@ -2,6 +2,7 @@
 #include <string>
 #include "lemlib/api.hpp" // IWYU pragma: keep
 #include "lemlib/chassis/trackingWheel.hpp"
+#include "pros/rtos.hpp"
 
 
 
@@ -11,7 +12,7 @@
 
 
 
-double t_wheel_diameter = lemlib::Omniwheel::NEW_2 * 2.54;
+double t_wheel_diameter = lemlib::Omniwheel::NEW_2 * 2.54 - 0.24;
 double wheel_diatemeter = lemlib::Omniwheel::NEW_325 * 2.54;
 
 double track_width = 12.375 * 2.54;
@@ -57,11 +58,11 @@ lemlib::OdomSensors sensors(&vertical, nullptr, &horizontal, nullptr, &imu);
 // lateral PID controller
 lemlib::ControllerSettings lateral_controller(10,  // proportional gain (kP)
                                               0,   // integral gain (kI)
-                                              3,   // derivative gain (kD)
+                                              20,   // derivative gain (kD)
                                               3,   // anti windup
                                               1 * 2.54,   // small error range, in inches
                                               100, // small error range timeout, in milliseconds
-                                              1 * 2.54,   // large error range, in inches
+                                              2 * 2.54,   // large error range, in inches
                                               500, // large error range timeout, in milliseconds
                                               20   // maximum acceleration (slew)
 );
@@ -71,7 +72,7 @@ lemlib::ControllerSettings angular_controller(2,   // proportional gain (kP)
                                               0,   // integral gain (kI)
                                               10,  // derivative gain (kD)
                                               3,   // anti windup
-                                              1,   // small error range, in degrees
+                                              2,   // small error range, in degrees
                                               100, // small error range timeout, in milliseconds
                                               3,   // large error range, in degrees
                                               500, // large error range timeout, in milliseconds
@@ -138,6 +139,7 @@ void initialize()
         pros::delay(40);
     }
   });
+
 }
 
 /**
@@ -179,7 +181,7 @@ void run_intake() {
   }
 }
 
-void autonomous()
+void autonomous_main()
 {
 
   preumatic_grabber.set_value(false);
@@ -267,6 +269,64 @@ void autonomous()
   // }
 }
 
+void autonomous() {
+  // preumatic_grabber.set_value(false);
+
+  // pros::delay(1000);
+
+  chassis.moveToPose(0, -70, 0, 950, { .forwards=false, .maxSpeed=80, });
+
+  chassis.moveToPose(0, -93, 0, 700, { .forwards=false, .maxSpeed=50 });
+
+  chassis.waitUntilDone();
+
+  preumatic_grabber.set_value(true);
+
+  pros::delay(200);
+
+  for(int i = 0; i < 50; i+=1) {
+    intake.move(127);
+    pros::delay(20);
+  }
+
+  intake.brake();
+
+  chassis.turnToHeading(60, 500);
+
+  chassis.waitUntilDone();
+
+  intake.move(127);
+
+  chassis.moveToPose(51, -65, 60, 1000, { .maxSpeed=80 });
+
+  chassis.waitUntilDone();
+
+  // pros::delay(700);
+
+  chassis.turnToHeading(151, 500);
+
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(57, -111, 151, 1000, { .maxSpeed=80 });
+
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(57, -9, 0, 3000, { .maxSpeed=80 });
+
+  chassis.waitUntilDone();
+
+  pros::delay(2500);
+
+  intake.brake();
+
+
+  
+
+
+  // pros::delay(2000);
+
+}
+
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -282,6 +342,12 @@ void autonomous()
  */
 void opcontrol()
 {
+
+  autonomous();
+
+  return;
+
+
   preumatic_grabber.set_value(true);
   // controller
 
