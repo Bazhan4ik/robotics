@@ -31,6 +31,7 @@ double vertical_tw_offset = 0.1895 * 2.54;
 
 
 pros::MotorGroup intake ({7});
+pros::MotorGroup motor_arm ({8});
 
 
 
@@ -60,10 +61,10 @@ lemlib::ControllerSettings lateral_controller(10,  // proportional gain (kP)
                                               0,   // integral gain (kI)
                                               20,   // derivative gain (kD)
                                               3,   // anti windup
-                                              1 * 2.54,   // small error range, in inches
+                                              0.5 * 2.54,   // small error range, in inches
                                               100, // small error range timeout, in milliseconds
-                                              2 * 2.54,   // large error range, in inches
-                                              500, // large error range timeout, in milliseconds
+                                              1.5 * 2.54,   // large error range, in inches
+                                              700, // large error range timeout, in milliseconds
                                               20   // maximum acceleration (slew)
 );
 
@@ -90,6 +91,8 @@ lemlib::Chassis chassis(drivetrain, lateral_controller, angular_controller, sens
 
 pros::Controller master(CONTROLLER_MASTER);
 
+
+pros::Rotation rotation_arm(16);
 
 
 
@@ -124,6 +127,8 @@ void initialize()
 {
   pros::lcd::initialize(); // initialize brain screen
   chassis.calibrate();     // calibrate sensors
+  rotation_arm.reset();
+  rotation_arm.reset_position();
 
   // print position to brain screen
   pros::Task screen_task([&]() {
@@ -141,46 +146,108 @@ void initialize()
   });
 
 }
-
-/**
- * Runs while the robot is in the disabled state of Field Management System or
- * the VEX Competition Switch, following either autonomous or opcontrol. When
- * the robot is enabled, this task will exit.
- */
 void disabled() {}
-
-/**
- * Runs after initialize(), and before autonomous when connected to the Field
- * Management System or the VEX Competition Switch. This is intended for
- * competition-specific initialization routines, such as an autonomous selector
- * on the LCD.
- *
- * This task will exit when the robot is enabled and autonomous or opcontrol
- * starts.
- */
-void competition_initialize()
-{
-}
-
-/**
- * Runs the user autonomous code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the autonomous
- * mode. Alternatively, this function may be called in initialize or opcontrol
- * for non-competition testing purposes.
- *
- * If the robot is disabled or communications is lost, the autonomous task
- * will be stopped. Re-enabling the robot will restart the task, not re-start it
- * from where it left off.
- */
-
+void competition_initialize(){}
 void run_intake() {
   while(true) {
-    intake.move(127);
+    intake.move(50);
     pros::delay(20);
   }
 }
+void move_arm_up() {
 
+  int target = 2750; // ticks up 
+
+  double maxSpeed = 35;
+
+  // start PID
+  bool enableDrivePID = true;
+
+
+  // constants
+  double kP = 1;
+  double kD = 5;
+
+  double prevError = 0;
+
+
+
+  left_motors.brake();
+  right_motors.brake();
+
+
+  // reset rotation positions
+  rotation_arm.reset();
+  rotation_arm.reset_position();
+
+  pros::lcd::print(4, "INITIAL VALUE: %d", rotation_arm.get_position());
+  
+  // pros::Task task1([&]() {
+  //   pros::delay(2000);
+  //   enableDrivePID = false;
+  // });
+
+
+  while(enableDrivePID) {
+    int ticks = rotation_arm.get_position();
+
+    int error = target - abs(ticks);
+    int derivative = error - prevError;
+
+    double lateralMotorPower = abs((error * kP) + (derivative * kD));
+    pros::lcd::print(2, "ARM SPEED: %f", lateralMotorPower);
+    pros::lcd::print(3, "ERROR: %d", error);
+    pros::lcd::print(3, "DERIVATIVE: %f", (derivative * kD));
+
+
+    // DO SOME LOGGING
+
+
+    // CHANGE ALL THE NUMBERS IN THESE IFs
+    if(lateralMotorPower > maxSpeed) {
+      lateralMotorPower = maxSpeed;
+    }
+    if(lateralMotorPower < -maxSpeed) {
+      lateralMotorPower = -maxSpeed;
+    }
+
+
+    // CHECK ALL THE NUMBERS
+    if(abs(error) < 100) {
+      // STOP ALL THE MOTORS
+      
+      motor_arm.set_brake_mode(MOTOR_BRAKE_HOLD);
+      motor_arm.brake();
+
+      pros::lcd::print(4, "STOPPED");
+
+      return;
+    } else {
+      // KEEP SPINNING
+      motor_arm.move(lateralMotorPower);
+    }
+
+
+    prevError = error;
+
+    pros::delay(10);
+  }
+  return;
+}
+void move_arm_down() {
+  motor_arm.move(-80);
+  pros::delay(300);
+  motor_arm.set_brake_mode(MOTOR_BRAKE_COAST);
+  motor_arm.brake();
+  return;
+}
+void move_arm_max() {
+  motor_arm.move(90);
+  pros::delay(500);
+  motor_arm.set_brake_mode(MOTOR_BRAKE_COAST);
+  motor_arm.brake();
+  return;
+}
 void autonomous_main()
 {
 
@@ -269,16 +336,18 @@ void autonomous_main()
   // }
 }
 
-void autonomous() {
+void autonomous_other() {
   // preumatic_grabber.set_value(false);
 
   // pros::delay(1000);
 
-  chassis.moveToPose(0, -70, 0, 950, { .forwards=false, .maxSpeed=80, });
+  chassis.moveToPose(0, -73, 0, 950, { .forwards=false, .maxSpeed=90, });
 
-  chassis.moveToPose(0, -93, 0, 700, { .forwards=false, .maxSpeed=50 });
+  chassis.moveToPose(0, -89, 0, 700, { .forwards=false, .maxSpeed=55 });
 
-  chassis.waitUntilDone();
+  chassis.moveToPose(0, -100, 0, 300, { .forwards=false, .maxSpeed=55 });
+
+  pros::delay(100);
 
   preumatic_grabber.set_value(true);
 
@@ -291,17 +360,24 @@ void autonomous() {
 
   intake.brake();
 
-  chassis.turnToHeading(60, 500);
+  chassis.turnToHeading(78, 500);
 
   chassis.waitUntilDone();
 
-  intake.move(127);
 
-  chassis.moveToPose(51, -65, 60, 1000, { .maxSpeed=80 });
+  intake.move(100);
+
+  chassis.moveToPose(52, -91, 78, 10000, { .maxSpeed=80 });
 
   chassis.waitUntilDone();
 
-  // pros::delay(700);
+  pros::delay(1000);
+
+  intake.brake();
+
+  pros::delay(700);
+
+  return;
 
   chassis.turnToHeading(151, 500);
 
@@ -327,25 +403,177 @@ void autonomous() {
 
 }
 
-/**
- * Runs the operator control code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the operator
- * control mode.
- *
- * If no competition control is connected, this function will run immediately
- * following initialize().
- *
- * If the robot is disabled or communications is lost, the
- * operator control task will be stopped. Re-enabling the robot will restart the
- * task, not resume it from where it left off.
- */
+void autonomous_another() {
+  // chassis.moveToPose(0, -73, 0, 950, { .forwards=false, .maxSpeed=90, });
+
+  chassis.moveToPose(0, -96, 0, 1200, { .forwards=false, .maxSpeed=85 });
+
+  chassis.waitUntilDone();
+
+  preumatic_grabber.set_value(true);
+
+  intake.move(127);
+
+  pros::delay(1000);
+
+  intake.brake();
+
+  chassis.turnToHeading(-90, 500);
+
+  chassis.waitUntilDone();
+  
+  chassis.moveToPose(-20, chassis.getPose().y, chassis.getPose().theta, 300, { .maxSpeed=70, .minSpeed=50 });
+
+  chassis.waitUntilDone();
+
+  intake.move(127);
+
+  chassis.moveToPose(-80, chassis.getPose().y, chassis.getPose().theta, 1000, { .maxSpeed=70 });
+
+  chassis.waitUntilDone();
+
+  pros::delay(1000);
+  
+  chassis.turnToHeading(-195, 1000, { .maxSpeed=70 });
+
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(chassis.getPose().x + 10, chassis.getPose().y - 25, chassis.getPose().theta, 500, { .maxSpeed=60 });
+
+  chassis.waitUntilDone();
+
+  pros::delay(1000);
+
+  chassis.turnToHeading(chassis.getPose().theta - 24, 300);
+
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(chassis.getPose().x + 6, chassis.getPose().y - 5, chassis.getPose().theta, 500, { .maxSpeed=60 });
+
+  chassis.waitUntilDone();
+
+  pros::delay(6000);
+
+  intake.brake();
+
+}
+
+void autonomous() {
+  chassis.moveToPose(0, -97, 0, 1500, { .forwards=false, .maxSpeed=100 });
+  chassis.waitUntilDone();
+  chassis.turnToHeading(37, 600, { .maxSpeed=80 });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+  // chassis.moveToPose(0, -28, chassis.getPose().theta, 1000, { .forwards=false, .maxSpeed=100 });
+  chassis.moveToPose(0, -37, chassis.getPose().theta, 700, { .forwards=false, .maxSpeed=55, .minSpeed=45});
+  chassis.waitUntilDone();
+  preumatic_grabber.set_value(true);
+  pros::delay(100);
+  chassis.moveToPose(0, -20, chassis.getPose().theta, 1000, { .maxSpeed=90, .minSpeed=50 });
+  chassis.waitUntilDone();
+  intake.move(-120);
+  chassis.turnToHeading(-75, 600, {.maxSpeed=60});
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+  chassis.moveToPose(0, 35, 0, 1000, { .maxSpeed=55 });
+  chassis.waitUntilDone();
+
+  pros::delay(800);
+  intake.move(127);
+
+  chassis.moveToPose(0, 15, 0, 1000, { .forwards=false, .maxSpeed=80, .minSpeed=50 });
+  chassis.waitUntilDone();
+
+  intake.brake();
+  preumatic_grabber.set_value(false);
+
+  chassis.moveToPose(0, 37, 0, 1000, { .maxSpeed=80, .minSpeed=50 });
+  chassis.waitUntilDone();
+
+  chassis.turnToHeading(130, 1000, { .maxSpeed=60, });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(0, -50, chassis.getPose().theta, 1000, { .forwards=false, .maxSpeed=70 });
+  chassis.waitUntilDone();
+
+  preumatic_grabber.set_value(true);
+  pros::delay(200);
+
+  chassis.turnToHeading(-142, 1000, { .maxSpeed=60 });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  intake.move(-127);
+
+  chassis.moveToPose(chassis.getPose().x, 120, chassis.getPose().theta, 5000, { .maxSpeed=55, .minSpeed=50 });
+  chassis.waitUntilDone();
+
+  chassis.turnToHeading(-130, 1000, { .maxSpeed=80 });
+  chassis.waitUntilDone();
+  move_arm_max();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(0, 95, 0, 1000, { .maxSpeed=50 });
+  chassis.waitUntilDone();
+
+
+  return;
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+  chassis.turnToHeading(45, 1000, { .maxSpeed=80 });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  move_arm_up();
+
+  return;
+
+  move_arm_up();
+
+  chassis.moveToPose(0, 100, 0, 2000, { .forwards=false, .maxSpeed=80, });
+
+  return;
+
+  chassis.turnToHeading(120, 1000, { .maxSpeed=80 });
+  chassis.waitUntilDone();
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+  chassis.moveToPose(0, -55, 0, 1000, { .forwards=false, .maxSpeed=80 });
+  chassis.waitUntilDone();
+  intake.brake();
+  preumatic_grabber.set_value(true);
+
+  // preumatic_grabber.set_value(true);
+
+  // intake.move(127);
+}
+
+
 void opcontrol()
 {
 
-  autonomous();
+  // pros::Task screen_task([&]() {
+  //   while (true) {
+  //       // print robot location to the brain screen
+  //       pros::lcd::print(0, "ARM TICKS: %d", rotation_arm.get_position());
 
-  return;
+  //       pros::delay(40);
+  //   }
+  // });
+
+
+  // autonomous();
+
+  // return;
 
 
   preumatic_grabber.set_value(true);
@@ -387,6 +615,17 @@ void opcontrol()
       intake.move(-127);
     } else {
       intake.brake();
+    }
+
+
+    if(master.get_digital(pros::E_CONTROLLER_DIGITAL_UP)) {
+      pros::Task my_task(move_arm_up, "My Task Name");
+    }
+    if(master.get_digital(pros::E_CONTROLLER_DIGITAL_B)) {
+      pros::Task my_task(move_arm_down, "My Task Name");
+    }
+    if(master.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
+      pros::Task my_task(move_arm_max, "My task name 2");
     }
 
     // if (index < 100) {
@@ -472,3 +711,15 @@ void opcontrol()
     pros::delay(20);
   }
 }
+
+void move_to_top() {
+  // motor set speed about 60-80
+  // check rotation sensor for when the arm rotated enough for the ring to go in
+  // stop the arm
+  // wait until a ring is inside
+  // move the ring
+
+  // arm.move(60);
+}
+
+
