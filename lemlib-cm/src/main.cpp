@@ -1,4 +1,5 @@
 #include "main.h"
+#include <cstdio>
 #include <string>
 #include "lemlib/api.hpp" // IWYU pragma: keep
 #include "lemlib/chassis/trackingWheel.hpp"
@@ -80,7 +81,7 @@ pros::Controller master(CONTROLLER_MASTER);
 
 pros::Rotation rotation_arm(16);
 
-pros::Vision vision_sensor (15);
+pros::Vision vision_sensor (14);
 
 pros::vision_signature_s_t RED_SIG = pros::Vision::signature_from_utility(EXAMPLE_SIG, 7921, 10923, 9422, -2907, -859, -1883, 2.5, 0);
 
@@ -89,6 +90,7 @@ pros::vision_signature_s_t RED_SIG = pros::Vision::signature_from_utility(EXAMPL
 
 
 
+bool lady_brown_allowed = false;
 void move_arm_up() {
 
   int target = 2750; // ticks up 
@@ -96,7 +98,7 @@ void move_arm_up() {
   double maxSpeed = 35;
 
   // start PID
-  bool enableDrivePID = true;
+  lady_brown_allowed = true;
 
 
   // constants
@@ -123,7 +125,7 @@ void move_arm_up() {
   // });
 
 
-  while(enableDrivePID) {
+  while(lady_brown_allowed) {
     int ticks = rotation_arm.get_position();
 
     int error = target - abs(ticks);
@@ -170,6 +172,7 @@ void move_arm_up() {
   return;
 }
 void move_arm_down() {
+  lady_brown_allowed = false;
   motor_arm.move(-80);
   pros::delay(300);
   motor_arm.set_brake_mode(MOTOR_BRAKE_COAST);
@@ -184,8 +187,78 @@ void move_arm_max() {
   return;
 }
 
+bool global_allow_intake = false;
+bool use_default_intake = false;
+
+
+bool valid_ring(pros::vision_object_s_t ring) {
+  pros:printf("height: %d \n", ring.height);
+  if(ring.height < -10) {
+    use_default_intake = true;
+  }
+  return ring.height > 169;
+}
+void intake_with_sorting() {
+  vision_sensor.set_signature(EXAMPLE_SIG, &RED_SIG);
+
+  bool ring_detected = false;
+  bool allow_intake = true;
+
+  while(!use_default_intake) {
+
+    pros::delay(20);
+
+    if(!global_allow_intake) {
+      continue;
+    }
+
+    if(allow_intake) {
+      intake.move(-127);
+    } else {
+      intake.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+      intake.brake();
+      if(ring_detected) {
+        pros::delay(400);
+        allow_intake = true;
+        ring_detected = false;
+      }
+    }
+
+    pros::vision_object_s_t ring = vision_sensor.get_by_sig(0, EXAMPLE_SIG);
+  
+    pros::lcd::print(4, "WH: %d -- %d", ring.width, ring.height);
+    // pros::lcd::print(4, "TP: %d -- %d", ring.top_coord, ring.top_coord - ring.height);
+
+    // if ring detected
+    if(valid_ring(ring)) {
+      pros::lcd::print(5, "OBJECT DETECTED");
+
+      ring_detected = true;
+    }
+    // after ring cannot be seen, remove the ring if existed
+    else {
+      if(ring_detected) {
+        pros::delay(100);
+        allow_intake = false;
+      }
+      pros::lcd::print(5, "-");
+    }
+  }
+  if(use_default_intake) {
+    while(true) {
+      pros::delay(30);
+      if(global_allow_intake) {
+        intake.move(127);
+      } else {
+        intake.brake();
+      }
+    }
+  }
+}
+
 void opcontrol() {
 
+  global_allow_intake = false;
   pneumatic_grabber.set_value(true);
 
   while (true) {
@@ -227,7 +300,23 @@ void opcontrol() {
 }
 
 
+
+
+
+
+
+
 void autonomous() {
+  // chassis.moveToPose(0, 30, 0, 1000, { .maxSpeed=60 });
+  // chassis.waitUntilDone();
+  global_allow_intake = true;
+  chassis.moveToPose(0, 120, 0, 5000, { .maxSpeed=45 });  
+  chassis.waitUntilDone();
+  pros::delay(1000);
+  global_allow_intake = false;
+}
+
+void autonomous_a() {
   chassis.moveToPose(0, -97, 0, 1500, { .forwards=false, .maxSpeed=100 });
   chassis.waitUntilDone();
   chassis.turnToHeading(37, 600, { .maxSpeed=80 });
@@ -311,74 +400,24 @@ void autonomous() {
 }
 
 
-bool valid_ring(pros::vision_object_s_t ring) {
-  return ring.width > 100 || ring.height > 100;
-}
-void intake_with_sorting() {
-  vision_sensor.set_signature(EXAMPLE_SIG, &RED_SIG);
-
-  bool allow_intake = true;
-  bool ring_detected = false;
-
-  while(true) {
-
-    if(allow_intake) {
-      intake.move(-127);
-    } else {
-      intake.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-      intake.brake();
-      if(ring_detected) {
-        pros::Task throw_ring_task([&]() {
-          pros::delay(400);
-          allow_intake = true;
-          ring_detected = false;
-        });
-      }
-    }
-
-    pros::vision_object_s_t ring = vision_sensor.get_by_sig(0, EXAMPLE_SIG);
-  
-    pros::lcd::print(4, "WH: %d -- %d", ring.width, ring.height);
-
-    // if ring detected
-    if(valid_ring(ring)) {
-      pros::lcd::print(5, "OBJECT DETECTED");
-
-      ring_detected = true;
-    }
-    // after ring cannot be seen, remove the ring if existed
-    else {
-      if(ring_detected) {
-        allow_intake = false;
-        pros::Task throw_ring_task([&]() {
-          pros::delay(100);
-        });
-      }
-      pros::lcd::print(5, "-");
-    }
-    pros::delay(20);
-  }
-}
-
-
-
 void initialize(){
   pros::lcd::initialize(); // initialize brain screen
   chassis.calibrate();     // calibrate sensors
   rotation_arm.reset();
   rotation_arm.reset_position();
 
-  pros::Task screen_task([&]() {
-    while (true) {
-        // print robot location to the brain screen
-        pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-        pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-        pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+  // pros::Task screen_task([&]() {
+  //   while (true) {
+  //     // print robot location to the brain screen
+  //     pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
+  //     pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
+  //     pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
 
-        pros::delay(40);
-    }
-  });
+  //     pros::delay(50);
+  //   }
+  // });
 
+  pros::Task intake_task(intake_with_sorting);
 }
 void on_center_button(){
   static bool pressed = false;
