@@ -11,6 +11,8 @@
 #define EXAMPLE_SIG 1
 
 
+ASSET(curve_txt);
+
 
 
 double t_wheel_diameter = lemlib::Omniwheel::NEW_2 * 2.54 - 0.24;
@@ -25,7 +27,8 @@ double vertical_tw_offset = 0.1895 * 2.54;
 pros::MotorGroup intake ({7});
 pros::MotorGroup motor_arm ({8});
 
-pros::adi::DigitalOut pneumatic_grabber('D', LOW);
+pros::adi::DigitalOut pneumatic_grabber('B', LOW);
+pros::adi::DigitalOut pneumatic_arm('D', LOW);
 
 pros::Imu imu(18);
 
@@ -85,7 +88,7 @@ pros::Vision vision_sensor (14);
 
 pros::vision_signature_s_t RED_SIG = pros::Vision::signature_from_utility(EXAMPLE_SIG, 7921, 10923, 9422, -2907, -859, -1883, 2.5, 0);
 
-
+pros::Distance distance_sensor (12);
 
 
 
@@ -181,7 +184,7 @@ void move_arm_down() {
 }
 void move_arm_max() {
   motor_arm.move(90);
-  pros::delay(500);
+  pros::delay(700);
   motor_arm.set_brake_mode(MOTOR_BRAKE_COAST);
   motor_arm.brake();
   return;
@@ -189,12 +192,15 @@ void move_arm_max() {
 
 bool global_allow_intake = false;
 bool use_default_intake = false;
+bool manual_intake = false;
+bool visual_sensor_disconnected = false;
 
 
 bool valid_ring(pros::vision_object_s_t ring) {
   pros:printf("height: %d \n", ring.height);
   if(ring.height < -10) {
     use_default_intake = true;
+    visual_sensor_disconnected = true;
   }
   return ring.height > 169;
 }
@@ -238,17 +244,17 @@ void intake_with_sorting() {
     // after ring cannot be seen, remove the ring if existed
     else {
       if(ring_detected) {
-        pros::delay(100);
+        // pros::delay(100);
         allow_intake = false;
       }
       pros::lcd::print(5, "-");
     }
   }
-  if(use_default_intake) {
+  if(use_default_intake && !manual_intake) {
     while(true) {
       pros::delay(30);
       if(global_allow_intake) {
-        intake.move(127);
+        intake.move(-127);
       } else {
         intake.brake();
       }
@@ -256,10 +262,49 @@ void intake_with_sorting() {
   }
 }
 
+
+bool grab = true;
+bool givetime = false;
+bool grabbed = false;
+void grabber() {
+  while(true) {
+    pros::delay(30);
+
+    pros::lcd::print(3, "%d", distance_sensor.get_distance());
+
+    if(grabbed) {
+      continue;
+    }
+    if(givetime) {
+      givetime = false;
+      pros::delay(700);
+    }
+
+    if(grab) {
+      if(distance_sensor.get_distance() < 37) {
+        pneumatic_grabber.set_value(true);
+        grabbed = true;
+      }
+    }
+    
+  }
+}
+
+void ungrab() {
+  pneumatic_grabber.set_value(false);
+  givetime = true;
+  grab = true;
+  grabbed = false;
+}
+
 void opcontrol() {
 
   global_allow_intake = false;
-  pneumatic_grabber.set_value(true);
+  manual_intake = true;
+  use_default_intake = true;
+
+
+  // pneumatic_grabber.set_value(true);
 
   while (true) {
 
@@ -271,17 +316,29 @@ void opcontrol() {
 
 
     if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-      pneumatic_grabber.set_value(false);
+      ungrab();
     } else {
-      pneumatic_grabber.set_value(true);
+      // pneumatic_grabber.set_value(true);
     }
 
     if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
       intake.move(127);
     } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-      intake.move(-127);
+      if(use_default_intake || visual_sensor_disconnected) {
+        intake.move(-127);
+      } else {
+        global_allow_intake = true;
+      }
+      // intake.move(-127);
     } else {
+      global_allow_intake = false;
       intake.brake();
+    }
+
+    if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
+      pneumatic_arm.set_value(true);
+    } else {
+      pneumatic_arm.set_value(false);
     }
 
 
@@ -303,35 +360,29 @@ void opcontrol() {
 
 
 
+// RED TEAM
+void autonomous_red() {
 
 
 
-void autonomous() {
-  // chassis.moveToPose(0, 30, 0, 1000, { .maxSpeed=60 });
-  // chassis.waitUntilDone();
-  global_allow_intake = true;
-  chassis.moveToPose(0, 120, 0, 5000, { .maxSpeed=45 });  
-  chassis.waitUntilDone();
-  pros::delay(1000);
-  global_allow_intake = false;
-}
 
-void autonomous_a() {
+  return;
   chassis.moveToPose(0, -97, 0, 1500, { .forwards=false, .maxSpeed=100 });
   chassis.waitUntilDone();
-  chassis.turnToHeading(37, 600, { .maxSpeed=80 });
+  chassis.turnToHeading(-37, 600, { .maxSpeed=80 });
   chassis.waitUntilDone();
   chassis.setPose(0,0,0);
   chassis.waitUntilDone();
   // chassis.moveToPose(0, -28, chassis.getPose().theta, 1000, { .forwards=false, .maxSpeed=100 });
-  chassis.moveToPose(0, -37, chassis.getPose().theta, 700, { .forwards=false, .maxSpeed=55, .minSpeed=45});
+  chassis.moveToPose(0, -40, chassis.getPose().theta, 700, { .forwards=false, .maxSpeed=55, .minSpeed=45});
   chassis.waitUntilDone();
   pneumatic_grabber.set_value(true);
   pros::delay(100);
   chassis.moveToPose(0, -20, chassis.getPose().theta, 1000, { .maxSpeed=90, .minSpeed=50 });
   chassis.waitUntilDone();
   intake.move(-120);
-  chassis.turnToHeading(-75, 600, {.maxSpeed=60});
+  // global_allow_intake = true;
+  chassis.turnToHeading(75, 600, {.maxSpeed=60});
   chassis.waitUntilDone();
   chassis.setPose(0,0,0);
   chassis.waitUntilDone();
@@ -339,47 +390,60 @@ void autonomous_a() {
   chassis.waitUntilDone();
 
   pros::delay(800);
+  // global_allow_intake = false;
   intake.move(127);
 
   chassis.moveToPose(0, 15, 0, 1000, { .forwards=false, .maxSpeed=80, .minSpeed=50 });
   chassis.waitUntilDone();
 
+  // global_allow_intake = false;
   intake.brake();
   pneumatic_grabber.set_value(false);
 
   chassis.moveToPose(0, 37, 0, 1000, { .maxSpeed=80, .minSpeed=50 });
   chassis.waitUntilDone();
 
-  chassis.turnToHeading(130, 1000, { .maxSpeed=60, });
+  chassis.turnToHeading(-130, 1000, { .maxSpeed=60, });
   chassis.waitUntilDone();
   chassis.setPose(0,0,0);
   chassis.waitUntilDone();
 
-  chassis.moveToPose(0, -50, chassis.getPose().theta, 1000, { .forwards=false, .maxSpeed=70 });
+  chassis.moveToPose(0, -47, chassis.getPose().theta, 1000, { .forwards=false, .maxSpeed=70 });
   chassis.waitUntilDone();
 
   pneumatic_grabber.set_value(true);
   pros::delay(200);
 
-  chassis.turnToHeading(-142, 1000, { .maxSpeed=60 });
+  chassis.turnToHeading(137, 1000, { .maxSpeed=60 });
   chassis.waitUntilDone();
   chassis.setPose(0,0,0);
   chassis.waitUntilDone();
 
+  // global_allow_intake = true;
   intake.move(-127);
 
-  chassis.moveToPose(chassis.getPose().x, 120, chassis.getPose().theta, 5000, { .maxSpeed=55, .minSpeed=50 });
+  chassis.moveToPose(chassis.getPose().x, 130, chassis.getPose().theta, 5000, { .maxSpeed=55, .minSpeed=50 });
   chassis.waitUntilDone();
 
-  chassis.turnToHeading(-130, 1000, { .maxSpeed=80 });
+  // chassis.turnToHeading(-85, 1000, { .maxSpeed=80 });
+  // chassis.waitUntilDone();
+
+  // chassis.setPose(0,0,0);
+  // chassis.waitUntilDone();
+
+  // chassis.moveToPose(0, 7, 0, 1000, { .maxSpeed=80 });
+  // chassis.waitUntilDone();
+  // chassis.turnToHeading(-90, 1000, { .maxSpeed=80 });
+  // chassis.waitUntilDone();
+  chassis.turnToHeading(130, 1000, { .maxSpeed=80 });
   chassis.waitUntilDone();
-  move_arm_max();
   chassis.setPose(0,0,0);
   chassis.waitUntilDone();
 
-  chassis.moveToPose(0, 95, 0, 1000, { .maxSpeed=50 });
+  chassis.moveToPose(0, 110, 0, 1000, { .maxSpeed=90 });
+  move_arm_max();
   chassis.waitUntilDone();
-
+  move_arm_max();
 
   return;
 
@@ -398,6 +462,258 @@ void autonomous_a() {
 
   chassis.moveToPose(0, 100, 0, 2000, { .forwards=false, .maxSpeed=80, });
 }
+// BLUE TEAM
+void autonomous_blue() {
+
+  chassis.moveToPose(0, -97, 0, 1500, { .forwards=false, .maxSpeed=100 });
+  chassis.waitUntilDone();
+  chassis.turnToHeading(37, 600, { .maxSpeed=80 });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+  // chassis.moveToPose(0, -28, chassis.getPose().theta, 1000, { .forwards=false, .maxSpeed=100 });
+  chassis.moveToPose(0, -37, chassis.getPose().theta, 700, { .forwards=false, .maxSpeed=55, .minSpeed=45});
+  chassis.waitUntilDone();
+
+// *
+  // *
+  // GRABS THE MOGO HERE
+  // *
+// *
+
+  // pneumatic_grabber.set_value(true);
+
+
+
+  pros::delay(100);
+  chassis.moveToPose(0, -20, chassis.getPose().theta, 1000, { .maxSpeed=90, .minSpeed=50 });
+  chassis.waitUntilDone();
+
+// *
+  // *
+  // RUNS THE INTAKE HERE
+  // *
+// *
+
+  intake.move(-120);
+  // global_allow_intake = true;
+
+
+  chassis.turnToHeading(-75, 600, {.maxSpeed=60});
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+  chassis.moveToPose(0, 35, 0, 1000, { .maxSpeed=55 });
+  chassis.waitUntilDone();
+
+
+// *
+  // *
+  // STOPS THE INTAKE HERE
+  // *
+// *
+
+  pros::delay(800);
+  // global_allow_intake = false;
+  intake.move(127);
+
+
+
+
+  chassis.moveToPose(0, 15, 0, 1000, { .forwards=false, .maxSpeed=80, .minSpeed=50 });
+  chassis.waitUntilDone();
+
+  // global_allow_intake = false;
+  intake.brake();
+  ungrab();
+  // pneumatic_grabber.set_value(false);
+
+  chassis.moveToPose(0, 33, 0, 1000, { .maxSpeed=80, .minSpeed=50 });
+  chassis.waitUntilDone();
+
+  chassis.turnToHeading(130, 1000, { .maxSpeed=60, });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(0, -47, chassis.getPose().theta, 1000, { .forwards=false, .maxSpeed=70 });
+  chassis.waitUntilDone();
+
+
+// *
+  // *
+  // GRABS THE MOGO HERE
+  // *
+// *
+
+
+  // pneumatic_grabber.set_value(true);
+  pros::delay(200);
+
+  chassis.turnToHeading(-137, 1000, { .maxSpeed=60 });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+// *
+  // *
+  // RUN THE INTAKE
+  // *
+// *
+
+  // global_allow_intake = true;
+  intake.move(-127);
+
+  chassis.moveToPose(chassis.getPose().x, 130, chassis.getPose().theta, 5000, { .maxSpeed=55, .minSpeed=50 });
+  chassis.waitUntilDone();
+
+  // chassis.turnToHeading(-85, 1000, { .maxSpeed=80 });
+  // chassis.waitUntilDone();
+
+  // chassis.setPose(0,0,0);
+  // chassis.waitUntilDone();
+
+  // chassis.moveToPose(0, 7, 0, 1000, { .maxSpeed=80 });
+  // chassis.waitUntilDone();
+  // chassis.turnToHeading(-90, 1000, { .maxSpeed=80 });
+  // chassis.waitUntilDone();
+  chassis.turnToHeading(-145, 1000, { .maxSpeed=80 });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(0, 110, 0, 1000, { .maxSpeed=90 });
+  move_arm_max();
+  chassis.waitUntilDone();
+  move_arm_max();
+
+  return;
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+  chassis.turnToHeading(45, 1000, { .maxSpeed=80 });
+  chassis.waitUntilDone();
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  move_arm_up();
+
+  return;
+
+  move_arm_up();
+
+  chassis.moveToPose(0, 100, 0, 2000, { .forwards=false, .maxSpeed=80, });
+}
+// SKILLS AUTO
+void autonomous_auto() {
+  intake.move(-127);
+  pros::delay(700);
+  intake.brake();
+
+  chassis.moveToPose(0, 31, 0, 1000, { .maxSpeed=50 });
+  chassis.waitUntilDone();
+
+  chassis.turnToHeading(90, 1000);
+  chassis.waitUntilDone();
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+// *
+  // *
+  // FIRST MOGO PICKED UP
+  // *
+// *
+
+  chassis.moveToPose(0, -64, 0, 2000, { .forwards=false, .maxSpeed=60 });
+  chassis.waitUntilDone();
+
+  chassis.turnToHeading(-90, 1000, { .maxSpeed=90 });
+  chassis.waitUntilDone();
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  intake.move(-127);
+
+  // FIRST RING PICKUP
+  chassis.moveToPose(0, 44, 0, 2000, { .maxSpeed=50 });
+  chassis.waitUntilDone();
+
+  pros::delay(700);
+
+  intake.brake();
+
+// *
+  // *
+  // BIG DIAGONAL STARTS
+  // *
+// *
+
+  chassis.turnToHeading(-26, 1000, { .maxSpeed=50 });
+  chassis.waitUntilDone();
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  // LONG DISTANCE HERE
+  chassis.moveToPose(0, 128, 0, 2000, { .maxSpeed=65 });
+  pros::delay(200);
+  intake.move(-127);
+  chassis.waitUntilDone();
+
+  pros::delay(300);
+
+  // TURN TO THE RING BESIDE THE HIGH STAKE
+  chassis.turnToHeading(-115, 1000, { .maxSpeed=70 });
+  chassis.waitUntilDone();
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(0, 41, 0, 1000, { .maxSpeed=50 });
+  pros::delay(200);
+  move_arm_up();
+  chassis.waitUntilDone();
+  
+  intake.brake();
+  return;
+
+  pros::delay(1400);
+  intake.set_brake_mode(MOTOR_BRAKE_COAST);
+  intake.brake();
+
+  chassis.turnToHeading(52, 1000, { .maxSpeed=60 });
+  chassis.waitUntilDone();
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(0, 14, 0, 500, { .maxSpeed=40 });
+  chassis.waitUntilDone();
+
+  chassis.setPose(0,0,0);
+  chassis.waitUntilDone();
+
+  chassis.moveToPose(0, 5, 0, 500, { .forwards=false, .maxSpeed=40, });
+  chassis.waitUntilDone();
+
+  move_arm_max();
+  pros::delay(500);
+  chassis.turnToHeading(5, 200);
+  chassis.waitUntilDone();
+  move_arm_max();
+
+  pros::delay(500);
+
+  ungrab();
+  intake.brake();
+}
+
+void autonomous() {
+  chassis.follow(curve_txt, 15, 5000);
+}
+
 
 
 void initialize(){
@@ -406,18 +722,19 @@ void initialize(){
   rotation_arm.reset();
   rotation_arm.reset_position();
 
-  // pros::Task screen_task([&]() {
-  //   while (true) {
-  //     // print robot location to the brain screen
-  //     pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-  //     pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-  //     pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+  pros::Task screen_task([&]() {
+    while (true) {
+      // print robot location to the brain screen
+      pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
+      pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
+      pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
 
-  //     pros::delay(50);
-  //   }
-  // });
+      pros::delay(50);
+    }
+  });
 
   pros::Task intake_task(intake_with_sorting);
+  pros::Task grabber_task(grabber);
 }
 void on_center_button(){
   static bool pressed = false;
