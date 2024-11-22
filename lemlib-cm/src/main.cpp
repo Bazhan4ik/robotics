@@ -12,6 +12,7 @@
 
 
 ASSET(curve_txt);
+ASSET(line_txt);
 
 
 
@@ -711,7 +712,11 @@ void autonomous_auto() {
 }
 
 void autonomous() {
-  chassis.follow(curve_txt, 15, 5000);
+  // chassis.setPose(30.732, 33.333, 0);
+  // chassis.waitUntilDone();
+
+  // chassis.follow(curve_txt, 25, 5000);
+  chassis.follow(line_txt, 25, 5000);
 }
 
 
