@@ -11,7 +11,8 @@
 #define EXAMPLE_SIG 1
 
 
-ASSET(curve_txt);
+ASSET(curvecm_txt);
+ASSET(curve2cm_txt);
 ASSET(line_txt);
 
 
@@ -712,9 +713,22 @@ void autonomous_auto() {
 }
 
 void autonomous() {
+  chassis.moveToPose(0, 50, 0, 2000, { .minSpeed=80, .earlyExitRange=20 });
+  chassis.moveToPose(0, 100, 0, 2000, { .maxSpeed=60 });
 
-  // chassis.follow(curve_txt, 25, 5000);
-  chassis.follow(line_txt, 10, 5000);
+
+  return;
+  chassis.moveToPose(0, -30, 0, 600, { .forwards=false });
+  chassis.waitUntilDone();
+
+
+  chassis.turnToHeading(-90, 5000, { .maxSpeed=60 });
+  chassis.waitUntilDone();
+
+  chassis.setPose(0,0,0);
+  chassis.moveToPose(0, 70, 0, 5000, { .minSpeed=80, .earlyExitRange=10 });
+  chassis.moveToPose(0, 900, 0, 1000, { .maxSpeed=50 });
+
 }
 
 
