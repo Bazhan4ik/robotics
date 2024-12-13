@@ -555,6 +555,11 @@ void initialize(){
   // intake.run_auto();
   intake.set_team_alliance("red");
 
+
+
   pros::Task intake_task(intake.task);
   pros::Task grabber_task(mogo_grabber);
+
+
+  
 }

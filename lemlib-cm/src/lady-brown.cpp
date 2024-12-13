@@ -123,27 +123,22 @@ void lb_get_ready() {
 
 
   while(lady_brown_allowed) {
+
+
     int ticks = rotation_arm.get_position();
 
     int error = target - std::abs(ticks);
     int derivative = error - prevError;
 
     double lateralMotorPower = std::abs((error * kP) + (derivative * kD));
-    pros::lcd::print(2, "ARM SPEED: %f", lateralMotorPower);
-    pros::lcd::print(3, "ERROR: %d", error);
-    pros::lcd::print(3, "DERIVATIVE: %f", (derivative * kD));
 
-
-    // DO SOME LOGGING
-
-
-    // CHANGE ALL THE NUMBERS IN THESE IFs
     if(lateralMotorPower > maxSpeed) {
       lateralMotorPower = maxSpeed;
     }
     if(lateralMotorPower < -maxSpeed) {
       lateralMotorPower = -maxSpeed;
     }
+
 
 
     // CHECK ALL THE NUMBERS

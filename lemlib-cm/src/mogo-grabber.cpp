@@ -31,10 +31,15 @@ void mogo_grabber() {
     }
 
     if(grab) {
+
+
       if(distance_sensor.get_distance() < 37) {
         pneumatic_mogo_grabber.set_value(true);
+        master.rumble("..");
         grabbed = true;
       }
+
+      
     }
     
   }
