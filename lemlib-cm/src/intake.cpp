@@ -44,21 +44,26 @@ void Intake::set_team_alliance(std::string team) {
   }
 };
 
-
+void Intake::run_auto_reverse() {
+  auto_run = true;
+  auto_reverse = true;
+}
 void Intake::run_auto() {
   auto_run = true;
 }
 void Intake::run() {
   intake_chain.move(127);
-  intake_stage1.move(127);
+  intake_stage1.move(-127);
 }
 void Intake::stop() {
   intake_chain.brake();
   intake_stage1.brake();
+  auto_run = false;
+  auto_reverse = false;
 }
 void Intake::reverse() {
   intake_chain.move(-127);
-  intake_stage1.move(-127);
+  intake_stage1.move(127);
 }
 
 void Intake::task() {
@@ -70,9 +75,14 @@ void Intake::task() {
     pros::delay(20);
 
     if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L2) || auto_run) {
+      if(auto_reverse) {
+        Intake::reverse();
+        continue;
+      }
       Intake::run();
 
-      pros::vision_object_s_t ring = vision_sensor.get_by_sig(0, RED_SIGNATURE);
+
+      pros::vision_object_s_t ring = vision_sensor.get_by_sig(0, signature_id);
     
       pros::lcd::print(4, "WH: %d -- %d", ring.width, ring.height);
       // pros::lcd::print(4, "TP: %d -- %d", ring.top_coord, ring.top_coord - ring.height);
@@ -96,6 +106,7 @@ void Intake::task() {
           Intake::stop();
           pros::delay(500);
           Intake::run();
+
 
           throw_ring = false;
           ring_not_seen = 0;

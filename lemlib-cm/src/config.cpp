@@ -44,14 +44,19 @@ pros::adi::DigitalOut pneumatic_robot_extension('D', LOW);
  */
 pros::Imu imu(18);
 
-pros::Rotation rotation_horizontal(9);
-pros::Rotation rotation_vertical(-19);
+pros::Rotation rotation_horizontal (9);
+pros::Rotation rotation_vertical (-19);
+
 
 lemlib::TrackingWheel tw_horizontal(&rotation_horizontal, t_wheel_diameter, horizontal_tw_offset);
 lemlib::TrackingWheel tw_vertical(&rotation_vertical, t_wheel_diameter, vertical_tw_offset);
 
+
+
 // lemlib::OdomSensors sensors(&tw_vertical, nullptr, &tw_horizontal, nullptr, &imu);
 lemlib::OdomSensors sensors(&tw_vertical, nullptr, nullptr, nullptr, &imu);
+
+
 
 
 pros::Rotation rotation_arm(16);

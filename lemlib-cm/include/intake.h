@@ -22,7 +22,7 @@ public:
 
   Intake();
 
-  void run_auto();
+  static void run_auto();
 
   static void run();
   static void stop();
@@ -31,5 +31,6 @@ public:
   static void set_team_alliance(std::string team);
 
   static void task();
+  static void run_auto_reverse();
   
 };

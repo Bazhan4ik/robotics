@@ -9,6 +9,13 @@ bool grab = true;
 bool givetime = false;
 bool grabbed = false;
 
+void mogo_disable() {
+  grab = false;
+}
+void mogo_enable() {
+  grab = true;
+}
+
 void mogo_grabber() {
   while(true) {
     pros::delay(30);
